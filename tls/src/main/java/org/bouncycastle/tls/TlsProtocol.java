@@ -10,6 +10,8 @@ import java.io.OutputStream;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Vector;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.bouncycastle.tls.crypto.TlsSecret;
 import org.bouncycastle.util.Arrays;
@@ -50,6 +52,7 @@ public abstract class TlsProtocol
     protected static final short CS_SERVER_SESSION_TICKET = 19;
     protected static final short CS_SERVER_FINISHED = 20;
     protected static final short CS_END = 21;
+    private static final String JAVAX_NET_DEBUG_ALL = "all";
 
     protected boolean isLegacyConnectionState()
     {
@@ -124,6 +127,9 @@ public abstract class TlsProtocol
     protected static final short ADS_MODE_0_N = 1; // 0/n record splitting
     protected static final short ADS_MODE_0_N_FIRSTONLY = 2; // 0/n record splitting on first data fragment only
 
+    private static final String SYSTEM_PROPERTY_IDENTIFIER_JAVAX_NET_DEBUG = "javax.net.debug";
+    private static final Logger LOG = Logger.getLogger(TlsProtocol.class.getName());
+
     /*
      * Queues for data from some protocols.
      */
@@ -139,6 +145,8 @@ public abstract class TlsProtocol
 
     private TlsInputStream tlsInputStream = null;
     private TlsOutputStream tlsOutputStream = null;
+
+    private final String javaxNetDebugValue;
 
     private volatile boolean closed = false;
     private volatile boolean failedWithError = false;
@@ -173,12 +181,14 @@ public abstract class TlsProtocol
         this.inputBuffers = new ByteQueueInputStream();
         this.outputBuffer = new ByteQueueOutputStream();
         this.recordStream = new RecordStream(this, inputBuffers, outputBuffer);
+        this.javaxNetDebugValue = System.getProperty(SYSTEM_PROPERTY_IDENTIFIER_JAVAX_NET_DEBUG);
     }
 
     protected TlsProtocol(InputStream input, OutputStream output)
     {
         this.blocking = true;
         this.recordStream = new RecordStream(this, input, output);
+        this.javaxNetDebugValue = System.getProperty(SYSTEM_PROPERTY_IDENTIFIER_JAVAX_NET_DEBUG);
     }
 
 //    public boolean renegotiate() throws IOException
@@ -448,9 +458,11 @@ public abstract class TlsProtocol
             if (this.sessionParameters == null)
             {
                 this.sessionMasterSecret = securityParameters.getMasterSecret();
-                byte[] sessionMasterSecretBytes = this.sessionMasterSecret.extract();
-                String sessionMasterSecretHexString = Hex.toHexString(sessionMasterSecretBytes);
-                System.out.println("Master secret: " + sessionMasterSecretHexString);
+                if (javaxNetDebugValue != null && javaxNetDebugValue.equals(JAVAX_NET_DEBUG_ALL)) {
+                    byte[] sessionMasterSecretBytes = this.sessionMasterSecret.extract();
+                    String sessionMasterSecretHexString = Hex.toHexString(sessionMasterSecretBytes);
+                    LOG.log(Level.INFO, "TLS master secret: " + sessionMasterSecretHexString);
+                }
 
                 this.sessionParameters = new SessionParameters.Builder()
                     .setCipherSuite(securityParameters.getCipherSuite())

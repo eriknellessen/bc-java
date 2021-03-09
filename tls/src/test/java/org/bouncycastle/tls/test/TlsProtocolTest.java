@@ -1,8 +1,6 @@
 package org.bouncycastle.tls.test;
 
-import java.io.OutputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
+import java.io.*;
 import java.security.SecureRandom;
 
 import org.bouncycastle.tls.TlsClientProtocol;
@@ -15,6 +13,10 @@ import junit.framework.TestCase;
 public class TlsProtocolTest
     extends TestCase
 {
+    private static final String SYSTEM_PROPERTY_IDENTIFIER_JAVAX_NET_DEBUG = "javax.net.debug";
+    private static final String SYSTEM_PROPERTY_VALUE_DEBUG_ALL = "all";
+    private static final String EMPTY_STRING = "";
+
     public void testClientServer() throws Exception
     {
         SecureRandom secureRandom = new SecureRandom();
@@ -53,6 +55,18 @@ public class TlsProtocolTest
         serverThread.join();
     }
 
+    public void testEnableLoggingOfMasterSecret() throws Exception {
+        String log = performHandshake(SYSTEM_PROPERTY_VALUE_DEBUG_ALL);
+
+        assertTrue("Did not log master secret as expected!", log.contains("TLS master secret: "));
+    }
+
+    public void testDoNotEnableLoggingOfMasterSecret() throws Exception {
+        String log = performHandshake(EMPTY_STRING);
+
+        assertFalse("Unexpectedly logged master secret!", log.contains("TLS master secret: "));
+    }
+
     static class ServerThread
         extends Thread
     {
@@ -77,5 +91,24 @@ public class TlsProtocolTest
 //                throw new RuntimeException(e);
             }
         }
+    }
+
+    private String performHandshake(String systemPropertyJavaxNetDebugValue) throws Exception {
+        System.setProperty(SYSTEM_PROPERTY_IDENTIFIER_JAVAX_NET_DEBUG,
+                           systemPropertyJavaxNetDebugValue);
+        PrintStream oldSystemErr = System.err;
+        String log;
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
+            PrintStream printStream = new PrintStream(byteArrayOutputStream);
+            System.setErr(printStream);
+            printStream.flush();
+            testClientServer();
+            log = byteArrayOutputStream.toString();
+        } finally {
+            System.setErr(oldSystemErr);
+            System.setProperty(SYSTEM_PROPERTY_IDENTIFIER_JAVAX_NET_DEBUG,
+                               EMPTY_STRING);
+        }
+        return log;
     }
 }
