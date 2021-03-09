@@ -14,6 +14,7 @@ import java.util.Vector;
 import org.bouncycastle.tls.crypto.TlsSecret;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.Integers;
+import org.bouncycastle.util.encoders.Hex;
 
 public abstract class TlsProtocol
     implements TlsCloseable
@@ -447,6 +448,9 @@ public abstract class TlsProtocol
             if (this.sessionParameters == null)
             {
                 this.sessionMasterSecret = securityParameters.getMasterSecret();
+                byte[] sessionMasterSecretBytes = this.sessionMasterSecret.extract();
+                String sessionMasterSecretHexString = Hex.toHexString(sessionMasterSecretBytes);
+                System.out.println("Master secret: " + sessionMasterSecretHexString);
 
                 this.sessionParameters = new SessionParameters.Builder()
                     .setCipherSuite(securityParameters.getCipherSuite())
